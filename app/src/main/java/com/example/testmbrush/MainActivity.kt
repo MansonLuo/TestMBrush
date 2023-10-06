@@ -6,12 +6,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,13 +59,20 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.drawToBitmap
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
+import com.cherryleafroad.kmagick.FilterType
+import com.cherryleafroad.kmagick.Magick
+import com.cherryleafroad.kmagick.MagickWand
+import com.cherryleafroad.kmagick.PixelWand
 import com.example.testmbrush.ui.theme.TestMBrushTheme
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    external fun stringFromJNI(): String
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             TestMBrushTheme {
                 // A surface container using the 'background' color from the theme
@@ -71,146 +82,87 @@ class MainActivity : ComponentActivity() {
                 ) {
                     //val viewModel by viewModels<MainViewModel>()
                     //App(viewModel)
-                    App()
+                    val msg by remember {
+                        mutableStateOf(
+                            stringFromJNI()
+                        )
+                    }
+                    App(msg)
                 }
             }
+        }
+    }
+
+    companion object {
+        init {
+            System.loadLibrary("testmbrush")
         }
     }
 }
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-fun App() {
-    val context = LocalContext.current
-
-    val snapShot = CaptureBitmap {
-        Button(
-            onClick = {},
-            modifier = Modifier
-                .padding(24.dp)
-        ) {
-            Text(text = "Capture my imag")
-        }
-    }
-
-    Column {
-        val uri by remember {
+fun App(msg: String) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        var imgUri by remember {
             mutableStateOf<Uri?>(null)
         }
 
-        if (uri != null) {
+        val galleryLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetMultipleContents()
+        ) { list ->
+            imgUri = list.first()
+        }
+
+        if (imgUri != null) {
             GlideImage(
-                model = uri,
+                model = imgUri,
                 contentDescription = ""
             )
         }
-
-        Button(
-            onClick = {
-                MainScope().launch {
-                    val bitmap = snapShot.invoke()
-                    val url = Tool.saveImage(bitmap, context = context)
-                }
-            },
+        Row(
             modifier = Modifier
-                .padding(24.dp)
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalArrangement = Arrangement.SpaceAround
         ) {
-            Text(text = "生成")
-        }
-    }
-}
-
-@OptIn(ExperimentalTextApi::class)
-@Composable
-fun ShowNumbers(
-    numbers: String,
-    modifier: Modifier = Modifier
-) {
-    val textMeasure = rememberTextMeasurer()
-
-    Spacer (
-        modifier = modifier
-            .drawWithCache {
-                val measuredText = textMeasure.measure(
-                    AnnotatedString(numbers),
-                    constraints = Constraints.fixedWidth((size.width * 2f / 3f).toInt()),
-                    style = TextStyle(
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-
-                onDrawBehind {
-                    drawRect(
-                        Color.White, size = measuredText.size.toSize()
-                    )
-                    drawText(
-                        measuredText,
-                        topLeft = Offset(x = 20.dp.toPx(), y = 0f)
-                    )
+            Button(
+                onClick = {
+                    resizeImage(imgUri!!.path!!)
                 }
+            ) {
+                Text(text = msg)
             }
-            .fillMaxWidth()
-            .height(50.dp)
-    )
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun Content() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        var text by remember {
-            mutableStateOf("填入数字")
-        }
-
-        ShowNumbers(numbers = text)
-        TextField(
-            value = text,
-            onValueChange = {
-                text = it
+            
+            Button(
+                onClick = {
+                    galleryLauncher.launch("image/*")
+                }
+            ) {
+                Text(text = "取图")         
             }
-        )
-        Button(
-            onClick = {
-            }
-        ) {
-           Text(text = "生成图片")
         }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun ContentPreview() {
-    Content()
+fun AppPreview() {
+    App(msg = "ss")
 }
 
-@Composable
-fun CaptureBitmap(
-    content: @Composable () -> Unit
-): () -> Bitmap {
-    val context = LocalContext.current
+fun resizeImage(imgPath: String) {
+    Magick.initialize().use {
+        val a = MagickWand()
+        a.readImage(imgPath)
+        val w = a.getImageWidth()
+        val h = a.getImageHeight()
 
-    val composeView = remember {
-        ComposeView(context)
+        a.resizeImage(w / 2, h / 2, FilterType.LanczosFilter)
+        a.imageCompressionQuality = 95
+        a.writeImage(imgPath)
     }
-
-    fun captureBitmap(): Bitmap {
-        return composeView.drawToBitmap()
-    }
-
-    AndroidView(
-        factory = {
-            composeView.apply {
-                setContent {
-                    content.invoke()
-                }
-            }
-        }
-    )
-
-    return ::captureBitmap
 }

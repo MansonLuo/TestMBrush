@@ -13,6 +13,7 @@ class MainViewModel: ViewModel() {
     var title by mutableStateOf("获取")
 
     fun loadData(onResult: (String) -> Unit) {
+        /*
         val call: Call<Resp> = Network.api.getComment()
 
         call.enqueue(object : Callback<Resp?> {
@@ -25,5 +26,6 @@ class MainViewModel: ViewModel() {
             }
 
         })
+         */
     }
 }
