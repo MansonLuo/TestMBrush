@@ -80,4 +80,6 @@ dependencies {
 
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
     implementation("org.objenesis:objenesis:3.2")
+
+    implementation("com.google.accompanist:accompanist-permissions:0.33.2-alpha")
 }
