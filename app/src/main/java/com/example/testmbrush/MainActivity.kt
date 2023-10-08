@@ -1,10 +1,12 @@
 package com.example.testmbrush
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -45,30 +47,21 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.toSize
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.drawToBitmap
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
+import com.cherryleafroad.kmagick.DrawingWand
 import com.cherryleafroad.kmagick.FilterType
+import com.cherryleafroad.kmagick.GravityType
 import com.cherryleafroad.kmagick.Magick
 import com.cherryleafroad.kmagick.MagickWand
+import com.cherryleafroad.kmagick.MagickWandException
 import com.cherryleafroad.kmagick.PixelWand
 import com.example.testmbrush.ui.theme.TestMBrushTheme
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
+import java.io.File
+
 
 class MainActivity : ComponentActivity() {
     external fun stringFromJNI(): String
@@ -147,7 +140,7 @@ fun App(msg: String) {
 
                 Button(
                     onClick = {
-                        resizeImage(imgUri!!.path!!)
+                        saveImage(context)
                     }
                 ) {
                     Text(text = msg)
@@ -173,15 +166,32 @@ fun AppPreview() {
     App(msg = "ss")
 }
 
-fun resizeImage(imgPath: String) {
+fun saveImage(context: Context) {
+    val pictureRootDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.absolutePath
+    val savedImagePath = pictureRootDir + File.separator + "生成的图片.jpg"
+    Log.d("Main", "image saved path: $savedImagePath")
     Magick.initialize().use {
-        val a = MagickWand()
-        a.readImage(imgPath)
-        val w = a.getImageWidth()
-        val h = a.getImageHeight()
+        val wand = MagickWand()
 
-        a.resizeImage(w / 2, h / 2, FilterType.LanczosFilter)
-        a.imageCompressionQuality = 95
-        a.writeImage(imgPath)
+        val pw = PixelWand()
+        pw.color = "#ffffff"
+        wand.newImage(500, 500, pw)
+
+        val dwand = DrawingWand()
+        dwand.fontSize = 40.0
+        dwand.font = "Liberation-Sans-Bold"
+
+        val colorWand = PixelWand()
+        colorWand.color = "black"
+        dwand.fillColor = colorWand
+        try {
+            wand.annotateImage(dwand, 0.0, 50.0, 0.0, "Some Text")
+        } catch (e: MagickWandException) {
+            val exc = wand.getException()
+            Log.d("Main", "$e.message")
+            Log.d("Main", "${exc.message}")
+        }
+
+        wand.writeImage(savedImagePath)
     }
 }
