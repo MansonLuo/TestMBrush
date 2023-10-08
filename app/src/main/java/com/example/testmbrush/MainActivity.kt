@@ -1,9 +1,11 @@
 package com.example.testmbrush
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -123,27 +126,43 @@ fun App(msg: String) {
                 contentDescription = ""
             )
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalArrangement = Arrangement.SpaceAround
-        ) {
-            Button(
-                onClick = {
-                    resizeImage(imgUri!!.path!!)
-                }
+        val context = LocalContext.current
+
+        RequireExternalPermissions(
+            navigateToSettingsScreen = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", context.packageName, null)
+                    )
+                )
+            }) {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalArrangement = Arrangement.SpaceAround
             ) {
-                Text(text = msg)
-            }
-            
-            Button(
-                onClick = {
-                    galleryLauncher.launch("image/*")
+
+                Button(
+                    onClick = {
+                        resizeImage(imgUri!!.path!!)
+                    }
+                ) {
+                    Text(text = msg)
                 }
-            ) {
-                Text(text = "取图")         
+
+
+                Button(
+                    onClick = {
+                        galleryLauncher.launch("image/*")
+                    }
+                ) {
+                    Text(text = "取图")
+                }
             }
+
         }
     }
 }
