@@ -1,64 +1,43 @@
 package com.example.testmbrush
 
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CardElevation
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.cherryleafroad.kmagick.DrawingWand
-import com.cherryleafroad.kmagick.FilterType
-import com.cherryleafroad.kmagick.GravityType
 import com.cherryleafroad.kmagick.Magick
 import com.cherryleafroad.kmagick.MagickWand
 import com.cherryleafroad.kmagick.MagickWandException
 import com.cherryleafroad.kmagick.PixelWand
+import com.example.testmbrush.extensions.saveJpgOf
+import com.example.testmbrush.extensions.transformAndSave
 import com.example.testmbrush.ui.theme.TestMBrushTheme
 import java.io.File
 
@@ -96,66 +75,58 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
+@OptIn(ExperimentalGlideComposeApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun App(msg: String) {
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Bottom
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp),
+        verticalArrangement = Arrangement.Bottom,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        var imgUri by remember {
+        var text by remember {
+            mutableStateOf("")
+        }
+        var imageUri by remember {
             mutableStateOf<Uri?>(null)
-        }
-
-        val galleryLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetMultipleContents()
-        ) { list ->
-            imgUri = list.first()
-        }
-
-        if (imgUri != null) {
-            GlideImage(
-                model = imgUri,
-                contentDescription = ""
-            )
         }
         val context = LocalContext.current
 
-        RequireExternalPermissions(
-            navigateToSettingsScreen = {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package", context.packageName, null)
-                    )
-                )
-            }) {
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-
-                Button(
-                    onClick = {
-                        saveImage(context)
-                    }
-                ) {
-                    Text(text = msg)
-                }
+        imageUri?.let { uri ->
+            GlideImage(model = uri, contentDescription = null)
+        }
 
 
-                Button(
-                    onClick = {
-                        galleryLauncher.launch("image/*")
-                    }
-                ) {
-                    Text(text = "取图")
-                }
+        TextField(
+            value = text,
+            onValueChange = {
+                text = it
             }
-
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Button(
+                onClick = {
+                    val path = text.saveJpgOf(context, "ori").transformAndSave(context)
+                    imageUri = Uri.fromFile(File(path))
+                }
+            ) {
+                Text(text = "生成")
+            }
+            Button(
+                onClick = {
+                    /*
+                    image?.value?.let {
+                        context.saveToDisk(it, "ori")
+                    }
+                     */
+                }
+            ) {
+                Text(text = "保存")
+            }
         }
     }
 }
