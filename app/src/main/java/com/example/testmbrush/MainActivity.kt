@@ -1,10 +1,7 @@
 package com.example.testmbrush
 
-import android.content.Context
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,19 +29,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
-import com.cherryleafroad.kmagick.DrawingWand
-import com.cherryleafroad.kmagick.Magick
-import com.cherryleafroad.kmagick.MagickWand
-import com.cherryleafroad.kmagick.MagickWandException
-import com.cherryleafroad.kmagick.PixelWand
-import com.example.testmbrush.extensions.saveJpgOf
-import com.example.testmbrush.extensions.transformAndSave
+import com.example.testmbrush.api.RetrofitInstance
+import com.example.testmbrush.api.MbrushRepository
+import com.example.testmbrush.api.usecases.SendSinglePrintUseCase
+import com.example.testmbrush.extensions.ContextExt.Companion.deleteTmpRgbFile
+import com.example.testmbrush.extensions.saveJpgTo
+import com.example.testmbrush.extensions.transformAndSaveToTmpRgb
 import com.example.testmbrush.ui.theme.TestMBrushTheme
+import kotlinx.coroutines.launch
 import java.io.File
 
 
 class MainActivity : ComponentActivity() {
-    external fun stringFromJNI(): String
+    external fun generateMBDFile(rgbFilePath: String, mbdFilePath: String)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,12 +55,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     //val viewModel by viewModels<MainViewModel>()
                     //App(viewModel)
-                    val msg by remember {
-                        mutableStateOf(
-                            stringFromJNI()
-                        )
-                    }
-                    App(msg)
+                    App()
                 }
             }
         }
@@ -77,7 +70,18 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalGlideComposeApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun App(msg: String) {
+fun App() {
+    val mbrushRepository = remember {
+        MbrushRepository(RetrofitInstance.mBrushService)
+    }
+    val sendSinglePrintUseCase = remember {
+        SendSinglePrintUseCase(mbrushRepository)
+    }
+    val viewModel = remember {
+        SendPrintsViewModel(sendSinglePrintUseCase)
+    }
+    val scope = rememberCoroutineScope()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -92,11 +96,23 @@ fun App(msg: String) {
             mutableStateOf<Uri?>(null)
         }
         val context = LocalContext.current
+        val rootPath = remember {
+            context.getExternalFilesDir("images")?.absolutePath
+        }
+        val tmpRgbFilePath = remember {
+            rootPath + File.separator + "tmp.rgb"
+        }
+        val mbdFilePath = remember {
+            rootPath + File.separator + "0.mbd"
+        }
 
         imageUri?.let { uri ->
             GlideImage(model = uri, contentDescription = null)
         }
 
+        viewModel.sendResult.value?.let { status ->
+            Text(text = "请求状态: ${status}")
+        }
 
         TextField(
             value = text,
@@ -110,22 +126,21 @@ fun App(msg: String) {
         ) {
             Button(
                 onClick = {
-                    val path = text.saveJpgOf(context, "ori").transformAndSave(context)
-                    imageUri = Uri.fromFile(File(path))
+                    imageUri = text.saveJpgTo(rootPath!!).let { imgPath ->
+                        imgPath.transformAndSaveToTmpRgb(context, rootPath)
+                        (context as MainActivity).generateMBDFile(
+                            tmpRgbFilePath,
+                            mbdFilePath
+                        )
+                        context.deleteTmpRgbFile(tmpRgbFilePath)
+                        Uri.fromFile(File(imgPath))
+                    }
+                    scope.launch {
+                        viewModel.SendSinglePrint(mbdFilePath)
+                    }
                 }
             ) {
                 Text(text = "生成")
-            }
-            Button(
-                onClick = {
-                    /*
-                    image?.value?.let {
-                        context.saveToDisk(it, "ori")
-                    }
-                     */
-                }
-            ) {
-                Text(text = "保存")
             }
         }
     }
@@ -134,35 +149,5 @@ fun App(msg: String) {
 @Preview(showBackground = true)
 @Composable
 fun AppPreview() {
-    App(msg = "ss")
-}
-
-fun saveImage(context: Context) {
-    val pictureRootDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.absolutePath
-    val savedImagePath = pictureRootDir + File.separator + "生成的图片.jpg"
-    Log.d("Main", "image saved path: $savedImagePath")
-    Magick.initialize().use {
-        val wand = MagickWand()
-
-        val pw = PixelWand()
-        pw.color = "#ffffff"
-        wand.newImage(500, 500, pw)
-
-        val dwand = DrawingWand()
-        dwand.fontSize = 40.0
-        dwand.font = "Liberation-Sans-Bold"
-
-        val colorWand = PixelWand()
-        colorWand.color = "black"
-        dwand.fillColor = colorWand
-        try {
-            wand.annotateImage(dwand, 0.0, 50.0, 0.0, "Some Text")
-        } catch (e: MagickWandException) {
-            val exc = wand.getException()
-            Log.d("Main", "$e.message")
-            Log.d("Main", "${exc.message}")
-        }
-
-        wand.writeImage(savedImagePath)
-    }
+    App()
 }

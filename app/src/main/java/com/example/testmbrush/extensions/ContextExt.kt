@@ -17,5 +17,9 @@ class ContextExt {
 
             return magick!!
         }
+
+        fun Context.deleteTmpRgbFile(filePath: String) {
+            File(filePath).delete()
+        }
     }
 }

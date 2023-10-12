@@ -11,9 +11,11 @@ import com.cherryleafroad.kmagick.PixelWand
 import com.example.testmbrush.extensions.ContextExt.Companion.getMagick
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
 
 
-fun String.saveJpgOf(context: Context, name: String): String {
+fun String.saveJpgTo(rootPath: String): String {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     paint.textSize = 80f
     paint.color = Color.BLACK
@@ -26,8 +28,7 @@ fun String.saveJpgOf(context: Context, name: String): String {
     canvas.drawColor(Color.WHITE)
     canvas.drawText(this, 0f, basaLine, paint)
 
-    val root = context.getExternalFilesDir("images")
-    val filePath = root?.absolutePath + File.separator + "$name.jpg"
+    val filePath = rootPath + File.separator + "${getRandomFileName()}.jpg"
 
     try {
         val quality = 100
@@ -41,7 +42,8 @@ fun String.saveJpgOf(context: Context, name: String): String {
     return filePath
 }
 
-fun String.transformAndSave(context: Context): String{
+fun String.transformAndSaveToTmpRgb(context: Context, rootPath: String) {
+    // generate tmp.rgb file
     context.getMagick().use {
         val wand = MagickWand()
         wand.readImage(this)
@@ -57,8 +59,13 @@ fun String.transformAndSave(context: Context): String{
         pixel.color = "transparent"
         wand.rotateImage(pixel, 90.00)
 
-        wand.writeImage(this.replace("ori.jpg", "tmp.rgb"))
+        wand.writeImage(rootPath + File.separator + "tmp.rgb")
     }
 
-    return this
+}
+
+fun String.getRandomFileName(): String {
+    val currentTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+
+    return currentTime.format(Date()).toString().replace(":", "")
 }
