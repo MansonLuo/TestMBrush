@@ -2,11 +2,13 @@ package com.example.testmbrush
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,8 +56,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    //val viewModel by viewModels<MainViewModel>()
-                    //App(viewModel)
                     App()
                 }
             }
@@ -74,11 +75,12 @@ fun App() {
     val mbrushRepository = remember {
         MbrushRepository(RetrofitInstance.mBrushService)
     }
-    val sendSinglePrintUseCase = remember {
-        SendSinglePrintUseCase(mbrushRepository)
-    }
+    val context = LocalContext.current
     val viewModel = remember {
-        SendPrintsViewModel(sendSinglePrintUseCase)
+        val vm = SendPrintsViewModel(mbrushRepository)
+        vm.loadRootPath(context = context)
+
+        vm
     }
     val scope = rememberCoroutineScope()
 
@@ -92,10 +94,7 @@ fun App() {
         var text by remember {
             mutableStateOf("")
         }
-        var imageUri by remember {
-            mutableStateOf<Uri?>(null)
-        }
-        val context = LocalContext.current
+
         val rootPath = remember {
             context.getExternalFilesDir("images")?.absolutePath
         }
@@ -106,12 +105,13 @@ fun App() {
             rootPath + File.separator + "0.mbd"
         }
 
-        imageUri?.let { uri ->
+
+        viewModel.imageUri.value?.let { uri ->
             GlideImage(model = uri, contentDescription = null)
         }
 
         viewModel.sendResult.value?.let { status ->
-            Text(text = "请求状态: ${status}")
+            Text(text = status)
         }
 
         TextField(
@@ -126,21 +126,30 @@ fun App() {
         ) {
             Button(
                 onClick = {
-                    imageUri = text.saveJpgTo(rootPath!!).let { imgPath ->
-                        imgPath.transformAndSaveToTmpRgb(context, rootPath)
-                        (context as MainActivity).generateMBDFile(
-                            tmpRgbFilePath,
-                            mbdFilePath
-                        )
-                        context.deleteTmpRgbFile(tmpRgbFilePath)
-                        Uri.fromFile(File(imgPath))
-                    }
+
                     scope.launch {
-                        viewModel.SendSinglePrint(mbdFilePath)
+                        viewModel.resetState()
+                        viewModel.transformText(
+                            text,
+                            context = context
+                        )
+
+                        Log.d("Main", "pos in transformText: 正常")
+                        viewModel.send()
                     }
                 }
             ) {
                 Text(text = "生成")
+            }
+            
+            Button(
+                onClick = {
+                    scope.launch {
+                        viewModel.removeUpload(context)
+                    }
+                }
+            ) {
+                Text(text = "清空")
             }
         }
     }

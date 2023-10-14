@@ -1,5 +1,6 @@
 package com.example.testmbrush.api
 
+import com.example.testmbrush.api.models.Status
 import okhttp3.MediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -10,12 +11,15 @@ class MbrushRepository(private val apiService: MBrushService) {
         return apiService.removeUpload()
     }
 
-    suspend fun upload(mbdFilePath: String): Status {
+    suspend fun upload(
+        mbdFilePath: String,
+        pos: Int = 0
+    ): Status {
         val file = File(mbdFilePath)
 
         val fileReq = RequestBody.create(MediaType.parse("*"), file)
-        val part = MultipartBody.Part.createFormData("file", "0.mbd", fileReq)
+        val filePart = MultipartBody.Part.createFormData("file", "$pos.mbd", fileReq)
 
-        return apiService.upload(part)
+        return apiService.upload(filePart)
     }
 }

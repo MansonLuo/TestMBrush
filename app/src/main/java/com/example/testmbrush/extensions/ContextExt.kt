@@ -21,5 +21,17 @@ class ContextExt {
         fun Context.deleteTmpRgbFile(filePath: String) {
             File(filePath).delete()
         }
+
+        fun Context.deleteAllMbdFile(rootPath: String) {
+            val rootDir = File(rootPath)
+
+            try {
+                rootDir.listFiles()?.forEach {
+                    it.delete()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

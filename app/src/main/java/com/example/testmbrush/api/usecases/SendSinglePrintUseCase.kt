@@ -1,8 +1,7 @@
 package com.example.testmbrush.api.usecases
 
-import android.util.Log
 import com.example.testmbrush.api.MbrushRepository
-import com.example.testmbrush.api.Status
+import com.example.testmbrush.api.models.Status
 
 class SendSinglePrintUseCase(private val mbrushRepository: MbrushRepository) {
 
